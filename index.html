@@ -1144,57 +1144,53 @@
         } finally { setAdminBusy(false); }
       }
 
-      async function uploadImage(input, refreshPreview, button, allowMedia) {
+      // Uploads go straight from the computer/phone file picker to Cloudinary
+      // (unsigned preset), so any photo or PDF saved as a file can be chosen.
+      const CLOUDINARY_CLOUD = 'ugrgzrst';
+      const CLOUDINARY_PRESET = 'coc-bhuj';
+      const CLOUDINARY_FOLDER = 'coc-bhuj-news';
+      function uploadImage(input, refreshPreview, button, allowMedia) {
         if (state.adminBusy) return;
-        const original = button.textContent;
-        button.disabled = true;
-        button.textContent = 'Opening...';
-        try {
-          await loadExternalScript('https://upload-widget.cloudinary.com/global/all.js', 'cloudinary');
-          if (!input.isConnected) return;
-          // allowMedia (used for the newspaper clippings field) also accepts
-          // PDFs, same as the public membership form's document uploads --
-          // resourceType "auto" lets Cloudinary store either an image or a
-          // raw PDF under the one field, rather than the image-only widget
-          // used for photographs elsewhere in this panel.
-          const widget = window.cloudinary.createUploadWidget({
-            cloudName: 'ugrgzrst',
-            uploadPreset: 'coc-bhuj',
-            folder: 'coc-bhuj-news',
-            clientAllowedFormats: allowMedia
-              ? ['png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'pdf']
-              : ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif'],
-            sources: ['local', 'url', 'camera'],
-            resourceType: allowMedia ? 'auto' : 'image',
-            multiple: false,
-            maxFiles: 1,
-            maxImageFileSize: 10485760,
-            maxFileSize: 10485760,
-            showAdvancedOptions: false,
-            showUploadMoreButton: false,
-            singleUploadAutoClose: true,
-            styles: { palette: {
-              window: '#ffffff', windowBorder: '#e5e7eb', tabIcon: '#6b1f2a', menuIcons: '#8c3341',
-              textDark: '#1f2937', textLight: '#ffffff', link: '#6b1f2a', action: '#d97706',
-              inactiveTabIcon: '#a48b91', error: '#b4233c', inProgress: '#d97706',
-              complete: '#6b1f2a', sourceBg: '#f8fafc'
-            } }
-          }, function (error, result) {
-            if (error) { toast(allowMedia ? 'The file could not be uploaded. Please try another allowed file or check your connection.' : 'The image could not be uploaded. Please try another allowed file or check your connection.'); return; }
-            if (result && result.event === 'success' && input.isConnected) {
-              const source = safeURL(result.info.secure_url);
-              if (!source) { toast('The upload did not return a valid file URL.'); return; }
-              const isPdf = (result.info.format || '').toLowerCase() === 'pdf' || isPdfUrl(source);
-              input.value = isPdf ? source : source.replace('/image/upload/', '/image/upload/f_auto,q_auto/');
-              input.dispatchEvent(new Event('input', { bubbles: true }));
-              refreshPreview();
-              toast(isPdf ? 'PDF uploaded. Save the record to publish it.' : 'Image uploaded. Save the record to publish it.');
-            }
-            if (result && result.event === 'close') widget.destroy().catch(function () {});
-          });
-          widget.open();
-        } catch (error) { toast(error.message || 'The upload service could not be opened.'); }
-        finally { if (button.isConnected) { button.disabled = false; button.replaceChildren(document.createTextNode(original), icon('upload')); } }
+        const picker = document.createElement('input');
+        picker.type = 'file';
+        picker.accept = allowMedia ? 'image/*,.pdf,application/pdf' : 'image/*';
+        picker.style.display = 'none';
+        document.body.append(picker);
+        picker.addEventListener('change', async function () {
+          const file = picker.files && picker.files[0];
+          picker.remove();
+          if (!file) return;
+          const isPdfFile = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+          if (!allowMedia && isPdfFile) { toast('Please choose a photo (JPG, PNG or WEBP).'); return; }
+          if (!isPdfFile && file.type && !file.type.startsWith('image/')) { toast('This file type is not allowed. Choose a photo' + (allowMedia ? ' or PDF.' : '.')); return; }
+          if (file.size > 10485760) { toast('This file is larger than 10 MB. Please choose a smaller file.'); return; }
+          const original = button.textContent;
+          button.disabled = true;
+          button.textContent = 'Uploading...';
+          try {
+            const form = new FormData();
+            form.append('file', file);
+            form.append('upload_preset', CLOUDINARY_PRESET);
+            form.append('folder', CLOUDINARY_FOLDER);
+            const kind = allowMedia ? 'auto' : 'image';
+            const response = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/' + kind + '/upload', { method: 'POST', body: form });
+            const result = await response.json().catch(function () { return {}; });
+            if (!response.ok) throw new Error((result.error && result.error.message) ? 'Upload failed: ' + result.error.message : 'The file could not be uploaded. Please check your connection and try again.');
+            if (!input.isConnected) return;
+            const source = safeURL(result.secure_url);
+            if (!source) throw new Error('The upload did not return a valid file URL.');
+            const isPdf = (result.format || '').toLowerCase() === 'pdf' || isPdfUrl(source);
+            input.value = isPdf ? source : source.replace('/image/upload/', '/image/upload/f_auto,q_auto/');
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            refreshPreview();
+            toast(isPdf ? 'PDF uploaded. Save the record to publish it.' : 'Image uploaded. Save the record to publish it.');
+          } catch (error) {
+            toast(error.message || 'The file could not be uploaded.');
+          } finally {
+            if (button.isConnected) { button.disabled = false; button.replaceChildren(document.createTextNode(original), icon('upload')); }
+          }
+        });
+        picker.click();
       }
 
       function updateAdminTabLocks() {
