@@ -170,6 +170,9 @@
     .upload-row { display: flex; align-items: center; gap: 9px; }
     .upload-row input { min-width: 0; }
     .upload-row .btn { flex-shrink: 0; }
+    .rotate-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+    .rotate-row[hidden] { display: none; }
+    .rotate-row .rotate-note { font-size: .78rem; color: #6b7280; }
     .upload-preview { width: 85px; height: 70px; border-radius: 5px; margin-top: 5px; }
     .pdf-preview { margin-top: 5px; }
     .pdf-preview-link { display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; background: var(--wine-tint); color: var(--navy); border-radius: 7px; font-size: .82rem; font-weight: 650; }
@@ -1034,15 +1037,18 @@
             input.placeholder = isMedia ? 'https://... or upload a photo/PDF' : 'https://... or upload an image';
             const row = node('div', 'upload-row');
             const preview = node('div');
+            let rotate = null;
             const refreshPreview = function () {
               preview.replaceChildren();
               if (safeURL(input.value)) preview.append(isMedia ? mediaPreview(input.value, field.label + ' preview', 'upload-preview') : photo(input.value, field.label + ' preview', 'upload-preview'));
+              if (rotate) rotate.update();
             };
+            rotate = rotateControls(input, refreshPreview);
             const upload = actionButton(isMedia ? 'Upload photo or PDF' : 'Upload image', 'btn btn-outline btn-small', 'upload', function () { uploadImage(input, refreshPreview, upload, isMedia); });
             row.append(input, upload);
             input.addEventListener('change', refreshPreview);
             refreshPreview();
-            wrap.append(label, row, node('span', 'form-privacy', isMedia ? 'PNG, JPG, JPEG, WEBP, HEIC, HEIF or PDF. Maximum 10 MB.' : 'PNG, JPG, JPEG, GIF, WEBP, HEIC, HEIF. Maximum 10 MB.'), preview);
+            wrap.append(label, row, node('span', 'form-privacy', isMedia ? 'PNG, JPG, JPEG, WEBP, HEIC, HEIF or PDF. Maximum 10 MB.' : 'PNG, JPG, JPEG, GIF, WEBP, HEIC, HEIF. Maximum 10 MB.'), preview, rotate.row);
           } else if (field.type === 'checkbox') wrap.append(input, label);
           else wrap.append(label, input);
           grid.append(wrap);
@@ -1146,6 +1152,50 @@
 
       // Uploads go straight from the computer/phone file picker to Cloudinary
       // (unsigned preset), so any photo or PDF saved as a file can be chosen.
+      // ---- Photo rotation: adds a Cloudinary rotation (a_90 / a_180 / a_270) to the photo link ----
+      function rotatableUrl(url) {
+        const u = safeURL(url);
+        return !!u && /^https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(u) && !isPdfUrl(u);
+      }
+      function rotateCloudinaryUrl(url, delta) {
+        const marker = '/image/upload/';
+        const at = url.indexOf(marker);
+        const base = url.slice(0, at + marker.length);
+        const parts = url.slice(at + marker.length).split('/');
+        let angle = 0;
+        let i = 0;
+        const kept = [];
+        // Leading path parts that are transformations (e.g. "f_auto,q_auto", "a_90"), up to the version "v123".
+        while (i < parts.length - 1 && !/^v\d+$/.test(parts[i]) && /^[a-z]{1,3}_[^/]*$/.test(parts[i])) {
+          const comps = parts[i].split(',').filter(function (c) {
+            const m = c.match(/^a_(-?\d+)$/);
+            if (m) { angle += parseInt(m[1], 10); return false; }
+            return true;
+          });
+          if (comps.length) kept.push(comps.join(','));
+          i++;
+        }
+        angle = ((angle + delta) % 360 + 360) % 360;
+        const transforms = (angle ? ['a_' + angle] : []).concat(kept);
+        return base + transforms.concat(parts.slice(i)).join('/');
+      }
+      function rotateControls(input, onChange) {
+        const row = node('div', 'rotate-row');
+        const turn = function (delta) {
+          if (!rotatableUrl(input.value)) return;
+          input.value = rotateCloudinaryUrl(safeURL(input.value), delta);
+          state.adminDirty = true;
+          onChange();
+          toast('Photo rotated. Save the record to keep it.');
+        };
+        const left = actionButton('↺ Rotate left', 'btn btn-outline btn-small', null, function () { turn(-90); });
+        const right = actionButton('↻ Rotate right', 'btn btn-outline btn-small', null, function () { turn(90); });
+        row.append(left, right, node('span', 'rotate-note', 'Turns the photo by 90°'));
+        const update = function () { row.hidden = !rotatableUrl(input.value); };
+        update();
+        return { row: row, update: update };
+      }
+
       const CLOUDINARY_CLOUD = 'ugrgzrst';
       const CLOUDINARY_PRESET = 'coc-bhuj';
       const CLOUDINARY_FOLDER = 'coc-bhuj-news';
@@ -1643,10 +1693,13 @@
         input.value = value || '';
         const row = node('div', 'upload-row');
         const preview = node('div');
+        let rotate = null;
         const refresh = function () {
           preview.replaceChildren();
           if (safeURL(input.value)) preview.append(allowMedia ? mediaPreview(input.value, label + ' preview', 'upload-preview') : photo(input.value, label + ' preview', 'upload-preview'));
+          if (rotate) rotate.update();
         };
+        rotate = rotateControls(input, refresh);
         const upload = actionButton(allowMedia ? 'Upload photo or PDF' : 'Upload photo', 'btn btn-outline btn-small', 'upload', function () { uploadImage(input, refresh, upload, allowMedia); });
         row.append(input, upload);
         input.addEventListener('change', refresh);
@@ -1654,7 +1707,7 @@
         // Save button at the moment the field loses focus.
         input.addEventListener('input', refresh);
         refresh();
-        wrap.append(node('label', '', label, { for: inputId }), row, preview);
+        wrap.append(node('label', '', label, { for: inputId }), row, preview, rotate.row);
         return wrap;
       }
 
