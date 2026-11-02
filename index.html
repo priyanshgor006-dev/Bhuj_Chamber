@@ -181,6 +181,15 @@
     .rotate-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
     .rotate-row[hidden] { display: none; }
     .rotate-row .rotate-note { font-size: .78rem; color: #6b7280; }
+    .photos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
+    .photos-grid .ph-item { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: #f3eef0; border: 1px solid #e5dde0; }
+    .photos-grid .ph-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photos-grid .ph-tools { position: absolute; inset: auto 0 0 0; display: flex; justify-content: space-between; gap: 2px; padding: 3px; background: linear-gradient(transparent, rgba(0,0,0,.55)); }
+    .photos-grid .ph-tools button { min-width: 24px; height: 24px; padding: 0 5px; border: 0; border-radius: 4px; background: rgba(255,255,255,.92); color: #3b1a22; font-size: 13px; line-height: 1; cursor: pointer; }
+    .photos-grid .ph-tools button.ph-del { background: #b42318; color: #fff; }
+    .photos-grid .ph-tools button:disabled { opacity: .4; cursor: default; }
+    .photos-grid .ph-item .photo-wrap { width: 100%; height: 100%; }
+    .photos-empty { margin: 8px 0 0; font-size: .82rem; color: #6b7280; }
     .upload-preview { width: 85px; height: 70px; border-radius: 5px; margin-top: 5px; }
     .pdf-preview { margin-top: 5px; }
     .pdf-preview-link { display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; background: var(--wine-tint); color: var(--navy); border-radius: 7px; font-size: .82rem; font-weight: 650; }
@@ -274,6 +283,16 @@
     .member-form-card .editor-title { margin-bottom: 22px; }
     .member-form-card details { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
     .member-form-card details > summary { color: var(--navy); font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 18px; }
+    .msg-badge { display: inline-block; min-width: 18px; padding: 1px 6px; margin-left: 4px; border-radius: 999px; background: #b4233c; color: #fff; font-size: 11px; font-weight: 700; line-height: 1.5; text-align: center; }
+    .msg-card { padding: 22px 24px; }
+    .msg-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+    .msg-head h3 { margin: 0; font-size: 18px; color: var(--navy-dark); }
+    .msg-when { font-size: 12px; color: #6b7280; margin-top: 3px; }
+    .msg-subject { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--gold-hover); text-transform: uppercase; letter-spacing: .04em; }
+    .msg-text { margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; font-size: 14.5px; color: #1f2937; background: #fafafa; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .msg-contact { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: 13.5px; }
+    .msg-contact a { color: var(--navy); font-weight: 600; }
+    .msg-card.is-new { border-left: 4px solid #d97706; }
     .member-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
     .member-summary button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 12.5px; font-weight: 600; color: #374151; cursor: pointer; }
     .member-summary button b { font-weight: 700; }
@@ -436,6 +455,7 @@
         <a class="nav-link" href="media.html">Media</a>
         <a class="nav-link" href="index.html#committee">Committee</a>
         <a class="nav-link" href="index.html#membership">Membership</a>
+        <a class="nav-link" href="contact.html">Contact</a>
         <a class="nav-link nav-admin active" href="admin.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg>Admin</a>
       </nav>
     </div>
@@ -467,12 +487,17 @@
           <button type="button" class="nav-link admin-tab-button" id="tab-adminClippings" data-tab="adminClippings" role="tab" aria-controls="adminClippings" aria-selected="false" tabindex="-1">Newspaper Clippings</button>
           <button type="button" class="nav-link admin-tab-button" id="tab-membershipApps" data-tab="membershipApps" role="tab" aria-controls="membershipApps" aria-selected="false" tabindex="-1">Membership Applications</button>
           <button type="button" class="nav-link admin-tab-button" id="tab-membershipMembers" data-tab="membershipMembers" role="tab" aria-controls="membershipMembers" aria-selected="false" tabindex="-1">Members</button>
+          <button type="button" class="nav-link admin-tab-button" id="tab-contactMessages" data-tab="contactMessages" role="tab" aria-controls="contactMessages" aria-selected="false" tabindex="-1">Messages <span class="msg-badge" id="msgBadge" hidden></span></button>
         </div>
         <div id="adminNews" class="admin-tab-panel" role="tabpanel" aria-labelledby="tab-adminNews" tabindex="0">
           <div id="collectionEditor">
             <div class="toolbar">
               <div class="button-group"><h2 class="admin-collection-title" id="adminCollectionTitle">News</h2><button class="icon-button" id="adminRefresh" aria-label="Refresh records"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button></div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end">
+              <button class="btn btn-danger btn-small" id="adminDeleteAll" hidden><svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>Delete all</button>
+              <button class="btn btn-outline btn-small" id="adminBulk" hidden><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>Upload many at once</button>
               <button class="btn btn-primary btn-small" id="adminAdd"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Add record</button>
+              </div>
             </div>
             <div class="admin-layout">
               <div><div class="search-wrap" style="margin-bottom:15px"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><input class="search-input" type="search" id="adminSearch" aria-label="Search records" placeholder="Find a record..."></div><div class="record-list" id="adminRecords" aria-live="polite"></div><p class="admin-notice">Changes use the supplied public API key and your existing database row-level security. Nothing on this screen changes those permissions.</p></div>
@@ -505,11 +530,19 @@
           <p class="results-count application-count" id="membersCount" role="status"></p>
           <div class="application-list" id="membersList"></div>
         </div>
+        <div id="contactMessages" class="admin-tab-panel" role="tabpanel" aria-labelledby="tab-contactMessages" tabindex="0" hidden>
+          <div class="application-toolbar">
+            <div><h2 class="gradient-text">Messages</h2><p>Messages sent through the Contact Us page. Reply by email or WhatsApp, then mark the message as replied.</p></div>
+            <div class="application-filter"><div class="field"><label for="msgFilter">Show</label><select id="msgFilter"><option value="New">New</option><option value="Replied">Replied</option><option value="">All messages</option></select></div><button type="button" class="icon-button" id="msgRefresh" aria-label="Refresh messages"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button></div>
+          </div>
+          <p class="results-count application-count" id="msgCount" role="status"></p>
+          <div class="application-list" id="msgList"></div>
+        </div>
         
       </div>
     </section>
   </main>
-  <footer class="site-footer" id="siteFooter"><div class="container"><div class="footer-main"><div><a href="index.html#home" class="footer-brand">Bhuj Chamber of Commerce<br>and Industries Federation</a><p class="footer-region">Kutch &#183; Gujarat &#183; India</p><p class="footer-tagline">Rooted in Kutch. Growing together.</p></div><div><h2 class="footer-heading">Let's stay connected</h2><a class="footer-contact" href="mailto:info@bhujchamber.org" style="display:block;font-size:12px;color:#cdb6bd;margin-top:8px;">info@bhujchamber.org</a></div><div><h2 class="footer-heading">Your Chamber</h2><div class="footer-links"><a href="index.html#about">About us</a><a href="index.html#committee">Our committee</a><a href="index.html#membership">Membership</a><a href="media.html">Media</a></div></div></div><div class="footer-bottom"><span>&#169; <span id="copyrightYear">2026</span> Bhuj Chamber of Commerce and Industries Federation. All rights reserved.</span><button class="back-top" id="backToTop">Back to top<svg class="icon" aria-hidden="true"><use href="#i-up"></use></svg></button></div></div></footer>
+  <footer class="site-footer" id="siteFooter"><div class="container"><div class="footer-main"><div><a href="index.html#home" class="footer-brand">Bhuj Chamber of Commerce<br>and Industries Federation</a><p class="footer-region">Kutch &#183; Gujarat &#183; India</p><p class="footer-tagline">Rooted in Kutch. Growing together.</p></div><div><h2 class="footer-heading">Let's stay connected</h2><a class="footer-contact" href="mailto:infoatccifb@gmail.com" style="display:block;font-size:12px;color:#cdb6bd;margin-top:8px;">infoatccifb@gmail.com</a></div><div><h2 class="footer-heading">Your Chamber</h2><div class="footer-links"><a href="index.html#about">About us</a><a href="index.html#committee">Our committee</a><a href="index.html#membership">Membership</a><a href="media.html">Media</a></div></div></div><div class="footer-bottom"><span>&#169; <span id="copyrightYear">2026</span> Bhuj Chamber of Commerce and Industries Federation. All rights reserved.</span><button class="back-top" id="backToTop">Back to top<svg class="icon" aria-hidden="true"><use href="#i-up"></use></svg></button></div></div></footer>
   <div class="doc-modal-backdrop" id="docModal" role="dialog" aria-modal="true">
     <div class="doc-modal-wrap">
       <button class="doc-modal-close" id="docModalClose" aria-label="Close">&times;</button>
@@ -548,6 +581,7 @@
         committee_members: [['sort_order', true]],
         projects: [['sort_order', true], ['created_at', false]],
         events: [['event_date', false]],
+        contact_messages: [['created_at', false]],
         media_coverage: [['sort_order', true], ['published_date', false], ['created_at', false]],
         site_media: [['sort_order', true]],
         membership_applications: [['created_at', false]],
@@ -871,7 +905,8 @@
           { name: 'location', label: 'Venue / location', wide: true, max: 500 },
           { name: 'image_url', label: 'Event photo or poster', type: 'image', wide: true },
           { name: 'link_url', label: 'Link for more details or registration (optional)', type: 'url', wide: true, max: 1000 },
-          { name: 'description', label: 'About the event', type: 'textarea', wide: true, rows: 6 }
+          { name: 'description', label: 'About the event', type: 'textarea', wide: true, rows: 6 },
+          { name: 'photos', label: 'Event photos (shown under Past Events, up to 20)', type: 'photos', wide: true }
         ] },
         media_coverage: { label: 'Media item', title: 'title', fields: [
           { name: 'title', label: 'Title (what the video is about)', required: true, wide: true, max: 500 },
@@ -935,7 +970,7 @@
 
       function setAdminBusy(busy) {
         state.adminBusy = busy;
-        ['#adminAdd', '#adminRefresh', '#adminSearch'].forEach(function (selector) { $(selector).disabled = busy; });
+        ['#adminAdd', '#adminBulk', '#adminDeleteAll', '#adminRefresh', '#adminSearch'].forEach(function (selector) { $(selector).disabled = busy; });
         $$('button, input, select, textarea', $('#adminEditor')).forEach(function (element) { element.disabled = busy; });
         $$('button', $('#adminRecords')).forEach(function (element) { element.disabled = busy; });
         updateAdminTabLocks();
@@ -1093,7 +1128,8 @@
             const options = field.options.slice();
             if (record && record[field.name] && !options.includes(record[field.name])) options.unshift(record[field.name]);
             options.forEach(function (option) { input.append(node('option', '', option === 'logo' ? 'Chamber logo' : option === 'hero' ? 'Hero photograph' : option, { value: option })); });
-          } else input = node('input', '', null, { type: (field.type === 'image' || field.type === 'media') ? 'url' : (field.type || 'text') });
+          } else if (field.type === 'photos') input = node('input', '', null, { type: 'hidden' });
+          else input = node('input', '', null, { type: (field.type === 'image' || field.type === 'media') ? 'url' : (field.type || 'text') });
           input.id = 'edit-' + field.name;
           input.name = field.name;
           input.required = !!field.required;
@@ -1105,10 +1141,14 @@
           else if (field.type === 'datetime-local') input.value = datetimeInput(record ? value : new Date().toISOString());
           else if (field.type === 'date') input.value = value ? String(value).slice(0, 10) : '';
           else if (field.type === 'number') input.value = value === undefined || value === null ? '0' : String(value);
+          else if (field.type === 'photos') input.value = JSON.stringify(photoList(value));
           else input.value = value === undefined || value === null ? '' : String(value);
           input.addEventListener('input', function () { input.setCustomValidity(''); state.adminDirty = true; });
           input.addEventListener('change', function () { input.setCustomValidity(''); state.adminDirty = true; });
-          if (field.type === 'image' || field.type === 'media') {
+          if (field.type === 'photos') {
+            wrap.append(label, input);
+            photosEditor(wrap, input);
+          } else if (field.type === 'image' || field.type === 'media') {
             const isMedia = field.type === 'media';
             input.placeholder = isMedia ? 'https://... or upload a photo/PDF' : 'https://... or upload an image';
             const row = node('div', 'upload-row');
@@ -1158,6 +1198,7 @@
           if (!input) continue;
           input.setCustomValidity('');
           if (field.type === 'checkbox') { payload[field.name] = input.checked; continue; }
+          if (field.type === 'photos') { payload[field.name] = photoList(input.value); continue; }
           const raw = input.value.trim();
           if (field.required && !raw) { input.setCustomValidity('Please complete this field.'); form.reportValidity(); return; }
           if (field.type === 'number') {
@@ -1276,6 +1317,218 @@
         return { row: row, update: update };
       }
 
+      // ---- Event photo album: a list of photo links saved in the "photos" column ----
+      const MAX_EVENT_PHOTOS = 20;
+      function photoList(value) {
+        let list = value;
+        if (typeof list === 'string') { try { list = JSON.parse(list || '[]'); } catch (e) { list = []; } }
+        if (!Array.isArray(list)) return [];
+        return list.map(function (u) { return safeURL(u); }).filter(Boolean).slice(0, MAX_EVENT_PHOTOS);
+      }
+      function photosEditor(wrap, input) {
+        const grid = node('div', 'photos-grid');
+        const empty = node('p', 'photos-empty', 'No photos added yet.');
+        const add = actionButton('Add photos', 'btn btn-outline btn-small', 'upload', function () { pickPhotos(); });
+        const count = node('span', 'form-privacy', '');
+        const get = function () { return photoList(input.value); };
+        const set = function (list) { input.value = JSON.stringify(list); state.adminDirty = true; draw(); };
+        const draw = function () {
+          const list = get();
+          grid.replaceChildren();
+          list.forEach(function (url, i) {
+            const item = node('div', 'ph-item');
+            item.append(photo(url, 'Event photo ' + (i + 1), ''));
+            const tools = node('div', 'ph-tools');
+            const left = node('button', '', '\u2190', { type: 'button', title: 'Move earlier', 'aria-label': 'Move photo ' + (i + 1) + ' earlier' });
+            const turn = node('button', '', '\u21bb', { type: 'button', title: 'Rotate', 'aria-label': 'Rotate photo ' + (i + 1) });
+            const del = node('button', 'ph-del', '\u00d7', { type: 'button', title: 'Remove', 'aria-label': 'Remove photo ' + (i + 1) });
+            left.disabled = i === 0; turn.disabled = !rotatableUrl(url);
+            left.addEventListener('click', function () { const l = get(); const t = l[i - 1]; l[i - 1] = l[i]; l[i] = t; set(l); });
+            turn.addEventListener('click', function () { const l = get(); l[i] = rotateCloudinaryUrl(l[i], 90); set(l); });
+            del.addEventListener('click', function () { if (!confirm('Remove this photo from the event?')) return; const l = get(); l.splice(i, 1); set(l); });
+            tools.append(left, turn, del);
+            item.append(tools);
+            grid.append(item);
+          });
+          empty.hidden = list.length > 0;
+          grid.hidden = list.length === 0;
+          add.disabled = list.length >= MAX_EVENT_PHOTOS;
+          count.textContent = list.length + ' of ' + MAX_EVENT_PHOTOS + ' photos. You can choose several at once. JPG, PNG, WEBP, HEIC; max 10 MB each. Save the event after adding.';
+        };
+        const pickPhotos = function () {
+          if (state.adminBusy) return;
+          const picker = document.createElement('input');
+          picker.type = 'file'; picker.accept = 'image/*'; picker.multiple = true; picker.style.display = 'none';
+          document.body.append(picker);
+          picker.addEventListener('change', async function () {
+            const files = Array.from(picker.files || []);
+            picker.remove();
+            if (!files.length) return;
+            const room = MAX_EVENT_PHOTOS - get().length;
+            if (files.length > room) toast('Only ' + room + ' more photo(s) can be added. The rest were skipped.');
+            const chosen = files.slice(0, room);
+            add.disabled = true;
+            let done = 0, failed = 0;
+            for (const file of chosen) {
+              add.textContent = 'Uploading ' + (done + failed + 1) + ' of ' + chosen.length + '...';
+              try {
+                if (file.type && !file.type.startsWith('image/')) throw new Error('not image');
+                if (file.size > 10485760) throw new Error('too big');
+                const form = new FormData();
+                form.append('file', file);
+                form.append('upload_preset', CLOUDINARY_PRESET);
+                form.append('folder', CLOUDINARY_FOLDER);
+                const response = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload', { method: 'POST', body: form });
+                const result = await response.json().catch(function () { return {}; });
+                const source = response.ok ? safeURL(result.secure_url) : null;
+                if (!source) throw new Error('upload');
+                if (!input.isConnected) return;
+                const l = get(); l.push(source.replace('/image/upload/', '/image/upload/f_auto,q_auto/')); set(l);
+                done++;
+              } catch (e) { failed++; }
+            }
+            if (!add.isConnected) return;
+            add.replaceChildren(document.createTextNode('Add photos'), icon('upload'));
+            draw();
+            toast(done + ' photo(s) added' + (failed ? ', ' + failed + ' could not be uploaded (not a photo, over 10 MB, or connection problem)' : '') + '. Save the event to publish them.');
+          });
+          picker.click();
+        };
+        wrap.append(add, count, empty, grid);
+        draw();
+      }
+
+      // ---- Bulk upload of newspaper clippings ----
+      // File names like "01__2026-09-14__Divya Bhaskar.jpg" fill in the order, date and newspaper automatically.
+      // Any other file name is uploaded with no date or newspaper name (they can be added later by editing).
+      function parseClippingName(fileName) {
+        const base = fileName.replace(/\.[^.]+$/, '');
+        const m = base.match(/^(\d+)__(\d{4}-\d{2}-\d{2}|nodate)__(.*)$/i);
+        if (m) {
+          const name = m[3].trim();
+          return { order: parseInt(m[1], 10), date: /^\d{4}/.test(m[2]) ? m[2] : null, name: name && name.toLowerCase() !== 'noname' ? name.slice(0, 250) : null };
+        }
+        const d = base.match(/(\d{4}-\d{2}-\d{2})/);
+        return { order: null, date: d ? d[1] : null, name: null };
+      }
+      function bulkUploadClippings() {
+        if (state.adminBusy || state.adminTable !== 'newspaper_clippings') return;
+        if (state.adminDirty && !confirmDiscard()) return;
+        const picker = document.createElement('input');
+        picker.type = 'file'; picker.multiple = true; picker.accept = 'image/*,.pdf,application/pdf'; picker.style.display = 'none';
+        document.body.append(picker);
+        picker.addEventListener('change', function () {
+          const files = Array.from(picker.files || []);
+          picker.remove();
+          if (!files.length) return;
+          const items = files.map(function (file) { return { file: file, info: parseClippingName(file.name) }; });
+          items.sort(function (a, b) {
+            const x = a.info.order, y = b.info.order;
+            if (x !== null && y !== null && x !== y) return x - y;
+            if (x !== null && y === null) return -1;
+            if (x === null && y !== null) return 1;
+            return a.file.name.localeCompare(b.file.name, undefined, { numeric: true });
+          });
+          if (!confirm('Upload ' + items.length + ' clipping(s)? They will appear at the top of the list, in the order of their file names.\n\nKeep this page open until it finishes.')) return;
+          runBulkUpload(items);
+        });
+        picker.click();
+      }
+      async function deleteAllClippings() {
+        if (state.adminBusy || state.adminTable !== 'newspaper_clippings') return;
+        if (state.adminDirty && !confirmDiscard()) return;
+        let rows;
+        try { rows = await supabaseClient.request('newspaper_clippings', { params: { select: 'id' } }); }
+        catch (error) { toast(error.message || 'Could not read the clippings. Please try again.'); return; }
+        if (!rows.length) { toast('There are no clippings to delete.'); return; }
+        const typed = prompt('This will permanently delete ALL ' + rows.length + ' newspaper clipping(s) from the website. This cannot be undone.\n\nType DELETE to confirm:');
+        if (typed === null) return;
+        if (typed.trim().toUpperCase() !== 'DELETE') { toast('Nothing was deleted. You must type DELETE to confirm.'); return; }
+        const panel = $('#adminEditor');
+        panel.replaceChildren();
+        const status = node('p', '', 'Deleting...', { role: 'status' });
+        status.style.fontWeight = '700';
+        panel.append(node('div', 'editor-title').appendChild(node('h2', '', 'Deleting clippings')).parentNode, status);
+        setAdminBusy(true);
+        let done = 0, failed = 0;
+        for (let i = 0; i < rows.length; i++) {
+          status.textContent = 'Deleting ' + (i + 1) + ' of ' + rows.length + '...';
+          try {
+            const res = await supabaseClient.request('newspaper_clippings', { method: 'DELETE', params: { id: 'eq.' + rows[i].id, select: 'id' } });
+            if (res.length === 1) done++; else failed++;
+          } catch (error) { failed++; }
+        }
+        setAdminBusy(false);
+        state.editingId = null;
+        invalidateTable('newspaper_clippings');
+        await loadAdminRecords(true);
+        toast(done + ' clipping(s) deleted' + (failed ? ', ' + failed + ' could not be deleted. Click Delete all again to retry.' : '.'));
+      }
+
+      async function runBulkUpload(items) {
+        const panel = $('#adminEditor');
+        panel.replaceChildren();
+        const head = node('div', 'editor-title');
+        head.append(node('h2', '', 'Uploading clippings'), node('span', 'badge', items.length + ' files'));
+        const status = node('p', '', 'Starting...', { role: 'status' });
+        status.style.fontWeight = '700';
+        const barWrap = node('div');
+        barWrap.style.cssText = 'height:10px;border-radius:999px;background:#f1e7ea;overflow:hidden;margin:10px 0 14px';
+        const bar = node('div');
+        bar.style.cssText = 'height:100%;width:0;background:linear-gradient(90deg,#d97706,#b45309);transition:width .3s';
+        barWrap.append(bar);
+        const note = node('p', 'form-privacy', 'Please keep this page open. Large batches take a few minutes.');
+        const failList = node('ul');
+        failList.style.cssText = 'margin:10px 0 0;padding-left:18px;color:#b42318;font-size:.86rem';
+        let stopped = false;
+        const stop = actionButton('Stop', 'btn btn-outline btn-small', null, function () { stopped = true; stop.disabled = true; status.textContent = 'Stopping after the current file...'; });
+        panel.append(head, status, barWrap, note, stop, failList);
+        setAdminBusy(true);
+        stop.disabled = false;
+        const guard = function (e) { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', guard);
+        const orders = state.adminRows.map(function (r) { return r.sort_order; }).filter(function (v) { return typeof v === 'number'; });
+        const start = (orders.length ? Math.min.apply(null, orders) : 1) - items.length;
+        let done = 0; const failed = [];
+        for (let i = 0; i < items.length; i++) {
+          if (stopped) break;
+          const item = items[i];
+          status.textContent = 'Uploading ' + (i + 1) + ' of ' + items.length + ': ' + item.file.name;
+          try {
+            const isPdf = item.file.type === 'application/pdf' || /\.pdf$/i.test(item.file.name);
+            if (!isPdf && item.file.type && !item.file.type.startsWith('image/')) throw new Error('not a photo or PDF');
+            if (item.file.size > 10485760) throw new Error('larger than 10 MB');
+            const form = new FormData();
+            form.append('file', item.file);
+            form.append('upload_preset', CLOUDINARY_PRESET);
+            form.append('folder', CLOUDINARY_FOLDER);
+            const response = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/' + (isPdf ? 'auto' : 'image') + '/upload', { method: 'POST', body: form });
+            const result = await response.json().catch(function () { return {}; });
+            const source = response.ok ? safeURL(result.secure_url) : null;
+            if (!source) throw new Error((result.error && result.error.message) || 'upload failed');
+            const url = isPdf || (result.format || '').toLowerCase() === 'pdf' ? source : source.replace('/image/upload/', '/image/upload/f_auto,q_auto/');
+            const rows = await supabaseClient.request('newspaper_clippings', { method: 'POST', params: { select: 'id' }, body: {
+              publication_name: item.info.name, clipping_date: item.info.date, image_url: url, caption: null, sort_order: start + i
+            } });
+            if (!rows || rows.length !== 1) throw new Error('could not be saved');
+            done++;
+          } catch (error) {
+            failed.push(item.file.name);
+            failList.append(node('li', '', item.file.name + ' \u2014 ' + (error.message || 'failed')));
+          }
+          bar.style.width = Math.round(((i + 1) / items.length) * 100) + '%';
+        }
+        window.removeEventListener('beforeunload', guard);
+        setAdminBusy(false);
+        stop.remove();
+        status.textContent = (stopped ? 'Stopped. ' : 'Finished. ') + done + ' of ' + items.length + ' clipping(s) uploaded' + (failed.length ? ', ' + failed.length + ' failed (listed below). Select only those files and upload them again.' : '.');
+        note.textContent = 'Click any clipping in the list to add a caption or correct its date or newspaper name.';
+        invalidateTable('newspaper_clippings');
+        await loadAdminRecords(true);
+        if (failed.length || stopped) { panel.replaceChildren(head, status, note, failList); }
+        toast(done + ' clipping(s) uploaded.');
+      }
+
       const CLOUDINARY_CLOUD = 'ugrgzrst';
       const CLOUDINARY_PRESET = 'coc-bhuj';
       const CLOUDINARY_FOLDER = 'coc-bhuj-news';
@@ -1349,9 +1602,13 @@
           loadMembershipApplications();
         } else if (tabId === 'certificateRequests') {
           loadCertificateRequests();
+        } else if (tabId === 'contactMessages') {
+          loadMessages();
         } else {
           panel.append($('#collectionEditor'));
           $('#adminCollectionTitle').textContent = button.textContent;
+          $('#adminBulk').hidden = table !== 'newspaper_clippings';
+          $('#adminDeleteAll').hidden = table !== 'newspaper_clippings';
           if (table !== state.adminTable) {
             state.adminTable = table;
             state.editingId = null;
@@ -1717,6 +1974,99 @@
         { name: 'due_date', label: 'Due date (renewal date)', type: 'date' }
       ];
 
+      // ---------- Contact messages (from the Contact Us page) ----------
+      const msgState = { rows: [], busy: false };
+      function phoneDigits(value) {
+        let d = String(value || '').replace(/\D/g, '');
+        if (d.length === 11 && d.charAt(0) === '0') d = d.slice(1);
+        if (d.length === 10) d = '91' + d;
+        return d.length >= 11 ? d : '';
+      }
+      function formatDateTime(value) {
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(d);
+      }
+      async function updateMsgBadge() {
+        try {
+          const rows = await supabaseClient.request('contact_messages', { params: { select: 'id', status: 'eq.New' } });
+          const badge = $('#msgBadge');
+          badge.textContent = String(rows.length);
+          badge.hidden = !rows.length;
+        } catch (e) { /* table not created yet: no badge */ }
+      }
+      function msgCard(m) {
+        const card = node('article', 'card msg-card' + (m.status === 'New' ? ' is-new' : ''));
+        const head = node('div', 'msg-head');
+        const left = node('div');
+        left.append(node('h3', '', m.name || 'No name'), node('div', 'msg-when', formatDateTime(m.created_at)));
+        head.append(left, node('span', 'member-tag ' + (m.status === 'New' ? 'due' : 'active'), m.status === 'New' ? 'New' : 'Replied'));
+        card.append(head);
+        if (m.subject) card.append(node('span', 'msg-subject', m.subject));
+        card.append(node('div', 'msg-text', m.message || ''));
+        const contact = node('div', 'msg-contact');
+        if (m.email) contact.append(node('a', '', '✉ ' + m.email, { href: 'mailto:' + m.email }));
+        if (m.phone) contact.append(node('a', '', '☎ ' + m.phone, { href: 'tel:' + String(m.phone).replace(/[^\d+]/g, '') }));
+        card.append(contact);
+        const actions = node('div', 'member-actions');
+        if (m.email) {
+          const subject = 'Re: ' + (m.subject || 'Your message to Bhuj Chamber of Commerce & Industries Federation');
+          const body = 'Dear ' + (m.name || 'Sir/Madam') + ',\n\nThank you for contacting Bhuj Chamber of Commerce & Industries Federation.\n\n\n\nRegards,\nBhuj Chamber of Commerce & Industries Federation\n\n----- Your message -----\n' + (m.message || '');
+          actions.append(node('a', 'btn btn-primary btn-small', 'Reply by email', { href: 'mailto:' + m.email + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body) }));
+        }
+        const wa = phoneDigits(m.phone);
+        if (wa) actions.append(node('a', 'btn btn-small btn-whatsapp', 'Reply on WhatsApp', { href: 'https://wa.me/' + wa + '?text=' + encodeURIComponent('Dear ' + (m.name || 'Sir/Madam') + ', thank you for contacting Bhuj Chamber of Commerce & Industries Federation. '), target: '_blank', rel: 'noopener' }));
+        actions.append(actionButton(m.status === 'New' ? 'Mark as replied' : 'Mark as new', 'btn btn-outline btn-small', 'check', function () { setMsgStatus(m, m.status === 'New' ? 'Replied' : 'New'); }));
+        actions.append(actionButton('Delete', 'btn btn-danger btn-small', 'trash', function () { deleteMsg(m); }));
+        card.append(actions);
+        return card;
+      }
+      async function loadMessages() {
+        const list = $('#msgList');
+        loadingState(list, 'Loading messages...');
+        $('#msgCount').textContent = '';
+        try {
+          const params = { select: '*', order: 'created_at.desc' };
+          const filter = $('#msgFilter').value;
+          if (filter) params.status = 'eq.' + filter;
+          const rows = await supabaseClient.request('contact_messages', { params: params });
+          msgState.rows = rows;
+          clearContent(list);
+          $('#msgCount').textContent = rows.length + (rows.length === 1 ? ' message' : ' messages') + (filter ? ' | ' + filter : '') + ' | Newest first';
+          if (!rows.length) {
+            const empty = node('div', 'empty-state');
+            empty.append(node('h3', '', filter === 'New' ? 'No new messages.' : 'No messages.'), node('p', '', filter === 'New' ? 'All caught up. Choose "All messages" to see older ones.' : 'Messages from the Contact Us page will appear here.'));
+            list.append(empty);
+          } else rows.forEach(function (m) { list.append(msgCard(m)); });
+          updateMsgBadge();
+        } catch (error) {
+          clearContent(list);
+          const empty = node('div', 'empty-state');
+          empty.append(node('h3', '', 'Messages unavailable'), node('p', '', (error.message || '') + ' If you have not yet run contact_messages.sql in Supabase, run it first.'), actionButton('Try again', 'btn btn-primary btn-small', 'refresh', loadMessages));
+          list.append(empty);
+        }
+      }
+      async function setMsgStatus(m, status) {
+        if (msgState.busy) return;
+        msgState.busy = true;
+        try {
+          const rows = await supabaseClient.request('contact_messages', { method: 'PATCH', params: { id: 'eq.' + m.id, select: 'id' }, body: { status: status } });
+          if (!rows.length) throw new Error('The change was not saved.');
+          toast(status === 'Replied' ? 'Marked as replied.' : 'Marked as new.');
+        } catch (e) { toast(e.message || 'The change was not saved.'); }
+        finally { msgState.busy = false; loadMessages(); }
+      }
+      async function deleteMsg(m) {
+        if (msgState.busy) return;
+        if (!window.confirm('Delete this message from ' + (m.name || 'this person') + '? This cannot be undone.')) return;
+        msgState.busy = true;
+        try {
+          const rows = await supabaseClient.request('contact_messages', { method: 'DELETE', params: { id: 'eq.' + m.id, select: 'id' } });
+          if (!rows.length) throw new Error('Nothing was deleted.');
+          toast('Message deleted.');
+        } catch (e) { toast(e.message || 'The message could not be deleted.'); }
+        finally { msgState.busy = false; loadMessages(); }
+      }
+
       // ---------- Membership renewal helpers ----------
       function todayISO() {
         const d = new Date();
@@ -1753,7 +2103,7 @@
         const who = m.rep1_name || m.organization_name || 'Member';
         const number = m.membership_no ? ' (Member No. ' + m.membership_no + ')' : '';
         const when = st.key === 'expired' ? 'was due for renewal on ' + formatDate(m.due_date) : 'is due for renewal on ' + formatDate(m.due_date);
-        const text = 'Dear ' + who + ',\n\nYour membership of Bhuj Chamber of Commerce & Industries Federation' + number + ' ' + when + '.\n\nPlease pay the annual fee to the Chamber’s bank account and email the payment receipt to info@bhujchamber.org.\n\nThank you.\nBhuj Chamber of Commerce & Industries Federation';
+        const text = 'Dear ' + who + ',\n\nYour membership of Bhuj Chamber of Commerce & Industries Federation' + number + ' ' + when + '.\n\nPlease pay the annual fee to the Chamber’s bank account and email the payment receipt to ccibbhuj@gmail.com.\n\nThank you.\nBhuj Chamber of Commerce & Industries Federation';
         return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(text);
       }
       async function updateMember(application, body, success) {
@@ -2457,9 +2807,14 @@
         $('#membershipAppsRefresh').addEventListener('click', loadMembershipApplications);
         $('#membersRefresh').addEventListener('click', loadMembershipApplications);
         $('#memberAdd').addEventListener('click', function () { if (!membershipAppsState.publishing) openMemberForm(null); });
+        $('#msgFilter').addEventListener('change', loadMessages);
+        $('#msgRefresh').addEventListener('click', loadMessages);
+        updateMsgBadge();
         $('#membersSearch').addEventListener('input', function () {
           if (!membershipAppsState.loading && membershipAppsState.view === 'members') renderMembershipRows();
         });
+        $('#adminBulk').addEventListener('click', bulkUploadClippings);
+        $('#adminDeleteAll').addEventListener('click', deleteAllClippings);
         $('#adminAdd').addEventListener('click', function () {
           if (!confirmDiscard()) return;
           renderEditor(null);
