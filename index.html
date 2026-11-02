@@ -1411,11 +1411,12 @@
         const d = base.match(/(\d{4}-\d{2}-\d{2})/);
         return { order: null, date: d ? d[1] : null, name: null };
       }
-      function bulkUploadClippings() {
-        if (state.adminBusy || state.adminTable !== 'newspaper_clippings') return;
+      function bulkUploadRecords() {
+        const conf = BULK_TABLES[state.adminTable];
+        if (state.adminBusy || !conf) return;
         if (state.adminDirty && !confirmDiscard()) return;
         const picker = document.createElement('input');
-        picker.type = 'file'; picker.multiple = true; picker.accept = 'image/*,.pdf,application/pdf'; picker.style.display = 'none';
+        picker.type = 'file'; picker.multiple = true; picker.accept = conf.allowPdf ? 'image/*,.pdf,application/pdf' : 'image/*'; picker.style.display = 'none';
         document.body.append(picker);
         picker.addEventListener('change', function () {
           const files = Array.from(picker.files || []);
@@ -1429,47 +1430,56 @@
             if (x === null && y !== null) return 1;
             return a.file.name.localeCompare(b.file.name, undefined, { numeric: true });
           });
-          if (!confirm('Upload ' + items.length + ' clipping(s)? They will appear at the top of the list, in the order of their file names.\n\nKeep this page open until it finishes.')) return;
+          if (!confirm('Upload ' + items.length + ' ' + conf.plural + '? They will appear at the top of the list, in the order of their file names.\n\nKeep this page open until it finishes.')) return;
           runBulkUpload(items);
         });
         picker.click();
       }
-      async function deleteAllClippings() {
-        if (state.adminBusy || state.adminTable !== 'newspaper_clippings') return;
+      // Sections that have "Delete all" and "Upload many at once"
+      const BULK_TABLES = {
+        newspaper_clippings: { plural: 'newspaper clipping(s)', title: 'clippings', allowPdf: true },
+        gallery_images: { plural: 'gallery photo(s)', title: 'gallery photos', allowPdf: false }
+      };
+      async function deleteAllRecords() {
+        const table = state.adminTable;
+        const conf = BULK_TABLES[table];
+        if (state.adminBusy || !conf) return;
         if (state.adminDirty && !confirmDiscard()) return;
         let rows;
-        try { rows = await supabaseClient.request('newspaper_clippings', { params: { select: 'id' } }); }
-        catch (error) { toast(error.message || 'Could not read the clippings. Please try again.'); return; }
-        if (!rows.length) { toast('There are no clippings to delete.'); return; }
-        const typed = prompt('This will permanently delete ALL ' + rows.length + ' newspaper clipping(s) from the website. This cannot be undone.\n\nType DELETE to confirm:');
+        try { rows = await supabaseClient.request(table, { params: { select: 'id' } }); }
+        catch (error) { toast(error.message || 'Could not read the records. Please try again.'); return; }
+        if (!rows.length) { toast('There is nothing to delete.'); return; }
+        const typed = prompt('This will permanently delete ALL ' + rows.length + ' ' + conf.plural + ' from the website. This cannot be undone.\n\nType DELETE to confirm:');
         if (typed === null) return;
         if (typed.trim().toUpperCase() !== 'DELETE') { toast('Nothing was deleted. You must type DELETE to confirm.'); return; }
         const panel = $('#adminEditor');
         panel.replaceChildren();
         const status = node('p', '', 'Deleting...', { role: 'status' });
         status.style.fontWeight = '700';
-        panel.append(node('div', 'editor-title').appendChild(node('h2', '', 'Deleting clippings')).parentNode, status);
+        panel.append(node('div', 'editor-title').appendChild(node('h2', '', 'Deleting ' + conf.title)).parentNode, status);
         setAdminBusy(true);
         let done = 0, failed = 0;
         for (let i = 0; i < rows.length; i++) {
           status.textContent = 'Deleting ' + (i + 1) + ' of ' + rows.length + '...';
           try {
-            const res = await supabaseClient.request('newspaper_clippings', { method: 'DELETE', params: { id: 'eq.' + rows[i].id, select: 'id' } });
+            const res = await supabaseClient.request(table, { method: 'DELETE', params: { id: 'eq.' + rows[i].id, select: 'id' } });
             if (res.length === 1) done++; else failed++;
           } catch (error) { failed++; }
         }
         setAdminBusy(false);
-        state.editingId = null;
-        invalidateTable('newspaper_clippings');
-        await loadAdminRecords(true);
-        toast(done + ' clipping(s) deleted' + (failed ? ', ' + failed + ' could not be deleted. Click Delete all again to retry.' : '.'));
+ state.editingId = null;
+        invalidateTable(table);
+        if (state.adminTable === table) await loadAdminRecords(true);
+        toast(done + ' ' + conf.plural + ' deleted' + (failed ? ', ' + failed + ' could not be deleted. Click Delete all again to retry.' : '.'));
       }
 
       async function runBulkUpload(items) {
+        const table = state.adminTable;
+        const conf = BULK_TABLES[table];
         const panel = $('#adminEditor');
         panel.replaceChildren();
         const head = node('div', 'editor-title');
-        head.append(node('h2', '', 'Uploading clippings'), node('span', 'badge', items.length + ' files'));
+        head.append(node('h2', '', 'Uploading ' + conf.title), node('span', 'badge', items.length + ' files'));
         const status = node('p', '', 'Starting...', { role: 'status' });
         status.style.fontWeight = '700';
         const barWrap = node('div');
@@ -1496,7 +1506,8 @@
           status.textContent = 'Uploading ' + (i + 1) + ' of ' + items.length + ': ' + item.file.name;
           try {
             const isPdf = item.file.type === 'application/pdf' || /\.pdf$/i.test(item.file.name);
-            if (!isPdf && item.file.type && !item.file.type.startsWith('image/')) throw new Error('not a photo or PDF');
+            if (isPdf && !conf.allowPdf) throw new Error('PDF files are not allowed here, only photos');
+            if (!isPdf && item.file.type && !item.file.type.startsWith('image/')) throw new Error('not a photo' + (conf.allowPdf ? ' or PDF' : ''));
             if (item.file.size > 10485760) throw new Error('larger than 10 MB');
             const form = new FormData();
             form.append('file', item.file);
@@ -1507,9 +1518,10 @@
             const source = response.ok ? safeURL(result.secure_url) : null;
             if (!source) throw new Error((result.error && result.error.message) || 'upload failed');
             const url = isPdf || (result.format || '').toLowerCase() === 'pdf' ? source : source.replace('/image/upload/', '/image/upload/f_auto,q_auto/');
-            const rows = await supabaseClient.request('newspaper_clippings', { method: 'POST', params: { select: 'id' }, body: {
-              publication_name: item.info.name, clipping_date: item.info.date, image_url: url, caption: null, sort_order: start + i
-            } });
+            const body = table === 'newspaper_clippings'
+              ? { publication_name: item.info.name, clipping_date: item.info.date, image_url: url, caption: null, sort_order: start + i }
+              : { image_url: url, caption: null, event_name: null, sort_order: start + i };
+            const rows = await supabaseClient.request(table, { method: 'POST', params: { select: 'id' }, body: body });
             if (!rows || rows.length !== 1) throw new Error('could not be saved');
             done++;
           } catch (error) {
@@ -1521,12 +1533,12 @@
         window.removeEventListener('beforeunload', guard);
         setAdminBusy(false);
         stop.remove();
-        status.textContent = (stopped ? 'Stopped. ' : 'Finished. ') + done + ' of ' + items.length + ' clipping(s) uploaded' + (failed.length ? ', ' + failed.length + ' failed (listed below). Select only those files and upload them again.' : '.');
-        note.textContent = 'Click any clipping in the list to add a caption or correct its date or newspaper name.';
-        invalidateTable('newspaper_clippings');
-        await loadAdminRecords(true);
+        status.textContent = (stopped ? 'Stopped. ' : 'Finished. ') + done + ' of ' + items.length + ' ' + conf.plural + ' uploaded' + (failed.length ? ', ' + failed.length + ' failed (listed below). Select only those files and upload them again.' : '.');
+        note.textContent = table === 'newspaper_clippings' ? 'Click any clipping in the list to add a caption or correct its date or newspaper name.' : 'Click any photo in the list to add a caption or event name.';
+        invalidateTable(table);
+        if (state.adminTable === table) await loadAdminRecords(true);
         if (failed.length || stopped) { panel.replaceChildren(head, status, note, failList); }
-        toast(done + ' clipping(s) uploaded.');
+        toast(done + ' ' + conf.plural + ' uploaded.');
       }
 
       const CLOUDINARY_CLOUD = 'ugrgzrst';
@@ -1607,8 +1619,8 @@
         } else {
           panel.append($('#collectionEditor'));
           $('#adminCollectionTitle').textContent = button.textContent;
-          $('#adminBulk').hidden = table !== 'newspaper_clippings';
-          $('#adminDeleteAll').hidden = table !== 'newspaper_clippings';
+          $('#adminBulk').hidden = !BULK_TABLES[table];
+          $('#adminDeleteAll').hidden = !BULK_TABLES[table];
           if (table !== state.adminTable) {
             state.adminTable = table;
             state.editingId = null;
@@ -2813,8 +2825,8 @@
         $('#membersSearch').addEventListener('input', function () {
           if (!membershipAppsState.loading && membershipAppsState.view === 'members') renderMembershipRows();
         });
-        $('#adminBulk').addEventListener('click', bulkUploadClippings);
-        $('#adminDeleteAll').addEventListener('click', deleteAllClippings);
+        $('#adminBulk').addEventListener('click', bulkUploadRecords);
+        $('#adminDeleteAll').addEventListener('click', deleteAllRecords);
         $('#adminAdd').addEventListener('click', function () {
           if (!confirmDiscard()) return;
           renderEditor(null);
