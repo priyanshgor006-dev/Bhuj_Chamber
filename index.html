@@ -274,6 +274,24 @@
     .member-form-card .editor-title { margin-bottom: 22px; }
     .member-form-card details { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
     .member-form-card details > summary { color: var(--navy); font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 18px; }
+    .member-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
+    .member-summary button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 12.5px; font-weight: 600; color: #374151; cursor: pointer; }
+    .member-summary button b { font-weight: 700; }
+    .member-summary button.active { border-color: var(--navy); background: #f8eef1; color: var(--navy); }
+    .member-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+    .member-tag.active { background: #e8f6ee; color: #11743d; }
+    .member-tag.due { background: #fff1dc; color: #a2560a; }
+    .member-tag.expired { background: #fde8ea; color: #b4233c; }
+    .member-tag.lifetime { background: #f3ecff; color: #6b3fb5; }
+    .member-tag.left { background: #eef0f3; color: #5b6472; }
+    .member-tag.unset { background: #f3f4f6; color: #6b7280; }
+    .member-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .member-sub { margin-top: 4px; color: #4b5563; font-size: 14px; line-height: 1.6; }
+    .member-due { margin-top: 12px; font-size: 14px; color: #374151; }
+    .member-due strong { color: var(--navy-dark); }
+    .member-due small { color: #6b7280; margin-left: 6px; }
+    .btn-whatsapp { background: #1fa855; border-color: #1fa855; color: #fff; }
+    .btn-whatsapp:hover { background: #178a45; border-color: #178a45; color: #fff; }
     .member-form-section { grid-column: 1 / -1; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 8px 0 -6px; }
     .application-edit { display: grid; grid-template-columns: .9fr 1fr 1fr auto; gap: 18px; align-items: end; padding-top: 25px; margin-top: 25px; border-top: 1px solid var(--border); }
     .application-edit .btn { min-height: 45px; }
@@ -410,6 +428,7 @@
       <nav class="site-nav" id="siteNav" aria-label="Site sections">
         <a class="nav-link" href="index.html#home">Home</a>
         <a class="nav-link" href="index.html#about">About Us</a>
+        <a class="nav-link" href="kutch.html">Kutch</a>
         <a class="nav-link" href="index.html#news">News</a>
         <a class="nav-link" href="index.html#gallery">Gallery</a>
         <a class="nav-link" href="index.html#projects">Projects</a>
@@ -478,10 +497,11 @@
         </div>
         <div id="membershipMembers" class="admin-tab-panel" role="tabpanel" aria-labelledby="tab-membershipMembers" tabindex="0" hidden>
           <div class="application-toolbar">
-            <div><h2 class="gradient-text">Members</h2><p>The official list of Chamber members, with photo and every detail. Approving an application adds it here, and you can also add a member directly.</p></div>
+            <div><h2 class="gradient-text">Members</h2><p>The official list of Chamber members with their due dates. Use Mark as renewed when a member pays, and WhatsApp reminder for members who are due.</p></div>
             <div class="application-filter"><div class="field"><label for="membersSearch">Search members</label><input type="search" id="membersSearch" placeholder="Name, membership no., mobile..." autocomplete="off"></div><button type="button" class="btn btn-primary" id="memberAdd"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg> Add member</button><button type="button" class="icon-button" id="membersRefresh" aria-label="Refresh members"><svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg></button></div>
           </div>
           <div id="memberFormHost" hidden></div>
+          <div class="member-summary" id="memberSummary" role="group" aria-label="Filter members"></div>
           <p class="results-count application-count" id="membersCount" role="status"></p>
           <div class="application-list" id="membersList"></div>
         </div>
@@ -547,7 +567,7 @@
       };
       const membershipAppsState = {
         filter: '', rows: [], requestVersion: 0, loading: false, publishing: false,
-        drafts: new Map(), notes: new Map(), openDetails: new Set(), view: 'applications'
+        drafts: new Map(), notes: new Map(), openDetails: new Set(), view: 'applications', memberFilter: 'current'
       };
       // The same table feeds two tabs: "Membership Applications" shows everything
       // that is not yet Approved; "Members" shows only Approved ones.
@@ -1420,9 +1440,32 @@
         const list = appsList();
         clearContent(list);
         const noun = isMembers ? ['member', 'members'] : ['application', 'applications'];
-        appsCount().textContent = rows.length + ' ' + (rows.length === 1 ? noun[0] : noun[1]) + (search ? ' | matching search' : isMembers ? ' | Newest first' : filter ? ' | ' + filter : ' | Newest first');
+        if (isMembers) {
+          const all = membershipAppsState.rows;
+          const counts = { current: 0, active: 0, due: 0, expired: 0, lifetime: 0, unset: 0, left: 0 };
+          all.forEach(function (m) { const k = memberStatus(m).key; counts[k]++; if (k !== 'left') counts.current++; });
+          const chips = [['current', 'All current'], ['due', '\ud83d\udfe0 Due soon'], ['expired', '\ud83d\udd34 Expired'], ['active', '\ud83d\udfe2 Active'], ['lifetime', '\u2b50 Lifetime'], ['left', '\u26aa Former members']];
+          if (counts.unset) chips.splice(4, 0, ['unset', 'No due date']);
+          const summary = $('#memberSummary');
+          summary.replaceChildren();
+          chips.forEach(function (c) {
+            const b = node('button', membershipAppsState.memberFilter === c[0] ? 'active' : '', null, { type: 'button', 'aria-pressed': String(membershipAppsState.memberFilter === c[0]) });
+            b.append(document.createTextNode(c[1] + ' '), node('b', '', String(counts[c[0]])));
+            b.addEventListener('click', function () { membershipAppsState.memberFilter = c[0]; renderMembershipRows(); });
+            summary.append(b);
+          });
+          const mf = membershipAppsState.memberFilter;
+          const filtered = rows.filter(function (m) { const k = memberStatus(m).key; return mf === 'current' ? k !== 'left' : k === mf; });
+          filtered.sort(function (a, b) {
+            const da = a.due_date || '9999-12-31', db = b.due_date || '9999-12-31';
+            if (da !== db) return da < db ? -1 : 1;
+            return String(a.organization_name || '').localeCompare(String(b.organization_name || ''));
+          });
+          rows.length = 0; Array.prototype.push.apply(rows, filtered);
+        }
+        appsCount().textContent = rows.length + ' ' + (rows.length === 1 ? noun[0] : noun[1]) + (search ? ' | matching search' : isMembers ? ' | Earliest due date first' : filter ? ' | ' + filter : ' | Newest first');
         if (!rows.length) {
-          if (isMembers) applicationListState(search ? 'No members match your search.' : 'No members yet.', search ? 'Try a different name, number or mobile.' : 'Approve an application and click Save & Publish to add it here, or use Add member to enter a member yourself.', false);
+          if (isMembers) applicationListState(search ? 'No members match your search.' : membershipAppsState.rows.length ? 'No members in this group.' : 'No members yet.', search ? 'Try a different name, number or mobile.' : membershipAppsState.rows.length ? 'Choose another filter above.' : 'Use Add member to enter a member.', false);
           else applicationListState(filter ? 'No ' + filter.toLowerCase() + ' applications.' : 'No pending applications.', filter ? 'Choose another status or view all applications.' : 'New applications will appear here. Approved ones move to the Members tab.', false);
         } else rows.forEach(function (application) { list.append(membershipApplicationCard(application)); });
       }
@@ -1661,81 +1704,137 @@
       const memberOrgTypes = ['Proprietorship', 'Partnership', 'LLP', 'Private Limited Company', 'Public Limited Company', 'Trust / Society', 'Other'];
       const memberFormLayout = [
         { section: 'Member' },
-        { name: 'organization_name', label: 'Name of member / organisation', required: true, wide: true },
-        { name: 'membership_category', label: 'Membership category', options: memberCategories },
+        { name: 'organization_name', label: 'Name of member / firm', required: true, wide: true },
+        { name: 'rep1_name', label: 'Contact person' },
+        { name: 'mobile', label: 'Phone / mobile (for WhatsApp)', type: 'tel', required: true },
         { name: 'membership_no', label: 'Membership No.' },
-        { name: 'receipt_no', label: 'Receipt No.' },
-        { name: 'organization_type', label: 'Type of organisation', options: memberOrgTypes },
-        { name: 'nature_of_business', label: 'Nature of business' },
-        { name: 'year_of_establishment', label: 'Year of establishment' },
-        { name: 'business_activity_details', label: 'Business activity details', type: 'textarea', wide: true },
-        { section: 'Registration' },
-        { name: 'registration_no', label: 'Registration / CIN no.' },
-        { name: 'gst_no', label: 'GST no.' },
-        { name: 'pan_tan_no', label: 'PAN / TAN no.' },
-        { section: 'Address and contact' },
-        { name: 'registered_address', label: 'Registered address', type: 'textarea', wide: true },
-        { name: 'factory_branch_address', label: 'Factory / branch address', type: 'textarea', wide: true },
-        { name: 'phone', label: 'Phone', type: 'tel' },
-        { name: 'mobile', label: 'Mobile', type: 'tel', required: true },
-        { name: 'email', label: 'Email', type: 'email' },
-        { name: 'website', label: 'Website' },
-        { section: 'Authorised representatives' },
-        { name: 'rep1_name', label: 'Representative 1 - name' },
-        { name: 'rep1_designation', label: 'Representative 1 - designation' },
-        { name: 'rep1_mobile', label: 'Representative 1 - mobile', type: 'tel' },
-        { name: 'rep1_email', label: 'Representative 1 - email', type: 'email' },
-        { name: 'rep2_name', label: 'Representative 2 - name' },
-        { name: 'rep2_designation', label: 'Representative 2 - designation' },
-        { name: 'rep2_mobile', label: 'Representative 2 - mobile', type: 'tel' },
-        { name: 'rep2_email', label: 'Representative 2 - email', type: 'email' },
-        { section: 'Business profile' },
-        { name: 'number_of_employees', label: 'Number of employees' },
-        { name: 'annual_turnover', label: 'Annual turnover' }
+        { name: 'membership_category', label: 'Membership category', options: memberCategories },
+        { section: 'Business' },
+        { name: 'nature_of_business', label: 'Type of business (e.g. Hardware, Textiles, Logistics)', wide: true },
+        { name: 'business_activity_details', label: 'Business details (optional)', type: 'textarea', wide: true },
+        { section: 'Membership dates' },
+        { name: 'joined_on', label: 'Joining date', type: 'date', required: true },
+        { name: 'due_date', label: 'Due date (renewal date)', type: 'date' }
       ];
+
+      // ---------- Membership renewal helpers ----------
+      function todayISO() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      }
+      function addOneYear(iso) {
+        const p = String(iso || '').slice(0, 10).split('-').map(Number);
+        if (p.length !== 3 || !p[0]) return '';
+        const d = new Date(Date.UTC(p[0] + 1, p[1] - 1, p[2]));
+        if (d.getUTCMonth() !== p[1] - 1) d.setUTCDate(0); // 29 Feb -> 28 Feb
+        return d.toISOString().slice(0, 10);
+      }
+      function daysUntil(iso) {
+        const p = String(iso).slice(0, 10).split('-').map(Number);
+        const t = new Date(); const today = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+        return Math.round((Date.UTC(p[0], p[1] - 1, p[2]) - today) / 86400000);
+      }
+      function isLifetimeCategory(category) { return /lifetime|patron/i.test(category || ''); }
+      function memberStatus(m) {
+        if (m.left_on) return { key: 'left', label: 'Left', cls: 'left' };
+        if (isLifetimeCategory(m.membership_category)) return { key: 'lifetime', label: 'Lifetime', cls: 'lifetime' };
+        if (!m.due_date) return { key: 'unset', label: 'Due date not set', cls: 'unset' };
+        const days = daysUntil(m.due_date);
+        if (days < 0) return { key: 'expired', label: 'Expired', cls: 'expired', days: days };
+        if (days <= 30) return { key: 'due', label: 'Due soon', cls: 'due', days: days };
+        return { key: 'active', label: 'Active', cls: 'active', days: days };
+      }
+      function whatsappLink(m) {
+        let digits = String(m.mobile || '').replace(/\D/g, '');
+        if (digits.length === 11 && digits.charAt(0) === '0') digits = digits.slice(1);
+        if (digits.length === 10) digits = '91' + digits;
+        if (digits.length < 11) return '';
+        const st = memberStatus(m);
+        const who = m.rep1_name || m.organization_name || 'Member';
+        const number = m.membership_no ? ' (Member No. ' + m.membership_no + ')' : '';
+        const when = st.key === 'expired' ? 'was due for renewal on ' + formatDate(m.due_date) : 'is due for renewal on ' + formatDate(m.due_date);
+        const text = 'Dear ' + who + ',\n\nYour membership of Bhuj Chamber of Commerce & Industries Federation' + number + ' ' + when + '.\n\nPlease pay the annual fee to the Chamber’s bank account and email the payment receipt to info@bhujchamber.org.\n\nThank you.\nBhuj Chamber of Commerce & Industries Federation';
+        return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(text);
+      }
+      async function updateMember(application, body, success) {
+        if (membershipAppsState.publishing) return;
+        membershipAppsState.publishing = true;
+        updateMembershipControlLocks();
+        try {
+          const rows = await supabaseClient.request('membership_applications', { method: 'PATCH', params: { id: 'eq.' + application.id, select: 'id' }, body: body });
+          if (!rows || rows.length !== 1) throw new Error('The change was not saved. If this keeps happening, check that the renewal SQL has been run.');
+          membershipAppsState.publishing = false;
+          toast(success);
+          await loadMembershipApplications();
+        } catch (failure) { toast(failure.message || 'The change could not be saved.'); }
+        finally { membershipAppsState.publishing = false; updateMembershipControlLocks(); }
+      }
+      function renewMember(application) {
+        const today = todayISO();
+        const base = application.due_date || today;
+        let next = addOneYear(base);
+        while (next <= today) next = addOneYear(next); // long-lapsed member: next renewal date after today
+        if (!window.confirm('Mark "' + (application.organization_name || 'this member') + '" as renewed?\n\nNew due date: ' + formatDate(next))) return;
+        updateMember(application, { due_date: next, last_renewed_on: today }, 'Renewed. New due date: ' + formatDate(next) + '.');
+      }
+      function markMemberLeft(application) {
+        if (!window.confirm('Mark "' + (application.organization_name || 'this member') + '" as left?\n\nThey move to Former members and get no more reminders. Their details are kept, and you can use Rejoin later.')) return;
+        updateMember(application, { left_on: todayISO() }, 'Marked as left. Find them under Former members.');
+      }
+      function rejoinMember(application) {
+        const answer = window.prompt('Rejoining date (YYYY-MM-DD):', todayISO());
+        if (answer === null) return;
+        const date = answer.trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(date + 'T12:00:00').getTime())) { toast('Please enter the date as YYYY-MM-DD, for example ' + todayISO() + '.'); return; }
+        const body = { left_on: null, joined_on: date, due_date: isLifetimeCategory(application.membership_category) ? null : addOneYear(date) };
+        updateMember(application, body, 'Welcome back! Member is active again.');
+      }
 
       function memberCard(application) {
         const id = String(application.id);
+        const st = memberStatus(application);
         const card = node('article', 'application-card card member-card', null, { 'data-application-id': id, 'aria-labelledby': 'application-title-' + id });
         const top = node('div', 'member-top');
         top.append(photo(application.doc_photo_url, (application.organization_name || 'Member') + ' photograph', 'member-photo'));
         const body = node('div');
-        body.append(node('h3', '', application.organization_name || 'Name not provided', { id: 'application-title-' + id }));
-        const meta = node('div', 'application-meta');
-        meta.append(node('strong', '', application.membership_category || 'Category not provided'));
-        body.append(meta);
+        const head = node('div', 'member-head');
+        head.append(node('h3', '', application.organization_name || 'Name not provided', { id: 'application-title-' + id }), node('span', 'member-tag ' + st.cls, st.label));
+        body.append(head);
+        if (application.rep1_name) body.append(node('div', 'member-sub', application.rep1_name));
+        const business = [application.nature_of_business, application.membership_category].filter(Boolean).join(' · ');
+        if (business) body.append(node('div', 'member-sub', business));
         if (application.membership_no) body.append(node('span', 'member-number', 'Member No. ' + application.membership_no));
         const facts = node('dl', 'application-facts');
-        applicationFact(facts, 'Mobile', application.mobile, 'phone');
-        applicationFact(facts, 'Email', application.email, 'email');
-        applicationFact(facts, 'Representative', [application.rep1_name, application.rep1_designation].filter(Boolean).join('\n'));
+        applicationFact(facts, 'Phone', application.mobile, 'phone');
+        if (application.business_activity_details) applicationFact(facts, 'Business details', application.business_activity_details);
         body.append(facts);
+        const due = node('div', 'member-due');
+        if (st.key === 'left') due.append(document.createTextNode('Left on '), node('strong', '', formatDate(application.left_on)));
+        else if (st.key === 'lifetime') due.append(node('strong', '', 'Lifetime member'), node('small', '', 'no renewal needed'));
+        else if (st.key === 'unset') due.append(document.createTextNode('Due date not set. Use Edit to add the joining date.'));
+        else {
+          due.append(document.createTextNode('Due date: '), node('strong', '', formatDate(application.due_date)));
+          const d = st.days;
+          due.append(node('small', '', d < 0 ? '(' + Math.abs(d) + ' day' + (d === -1 ? '' : 's') + ' ago)' : d === 0 ? '(today)' : '(' + d + ' day' + (d === 1 ? '' : 's') + ' left)'));
+        }
+        if (application.joined_on) due.append(node('small', '', '· Joined ' + formatDate(application.joined_on)));
+        body.append(due);
         top.append(body);
         card.append(top);
 
-        const details = node('details', 'application-details');
-        details.open = membershipAppsState.openDetails.has(id);
-        details.addEventListener('toggle', function () {
-          if (details.open) membershipAppsState.openDetails.add(id); else membershipAppsState.openDetails.delete(id);
-        });
-        details.append(node('summary', '', 'Full details'));
-        const full = applicationFullFacts(application);
-        applicationFact(full, 'Membership No.', application.membership_no);
-        applicationFact(full, 'Receipt No.', application.receipt_no);
-        applicationFact(full, 'Member since', application.created_at ? formatDate(application.created_at) : '');
-        details.append(full);
-        card.append(details);
-
-        const documents = applicationDocuments(application);
-        if (documents) card.append(documents);
-
         const actions = node('div', 'member-actions');
-        actions.append(
-          printCopyButton(application),
-          actionButton('Edit details', 'btn btn-outline btn-small', 'check', function () { openMemberForm(application); }),
-          actionButton('Move back to applications', 'btn btn-outline btn-small', 'refresh', function () { moveMemberBack(application); }),
-          actionButton('Delete member', 'btn btn-danger btn-small', 'trash', function () { deleteMember(application); })
-        );
+        if (st.key !== 'left' && st.key !== 'lifetime') {
+          const wa = whatsappLink(application);
+          if (wa && (st.key === 'due' || st.key === 'expired')) {
+            const link = node('a', 'btn btn-small btn-whatsapp', 'WhatsApp reminder', { href: wa, target: '_blank', rel: 'noopener' });
+            actions.append(link);
+          }
+          actions.append(actionButton('Mark as renewed', 'btn btn-primary btn-small', 'check', function () { renewMember(application); }));
+        }
+        actions.append(actionButton('Edit', 'btn btn-outline btn-small', null, function () { openMemberForm(application); }));
+        if (st.key === 'left') actions.append(actionButton('Rejoin', 'btn btn-outline btn-small', 'refresh', function () { rejoinMember(application); }));
+        else actions.append(actionButton('Member left', 'btn btn-outline btn-small', null, function () { markMemberLeft(application); }));
+        actions.append(actionButton('Delete', 'btn btn-danger btn-small', 'trash', function () { deleteMember(application); }));
         card.append(actions, officeNotesField(application));
         return card;
       }
@@ -1802,15 +1901,21 @@
         grid.append(memberUploadField('doc_photo_url', 'Member photo (shown on the member card)', record && record.doc_photo_url, false));
         form.append(grid);
 
-        const docs = node('details');
-        if (record && membershipDocumentFields.some(function (f) { return f[0] !== 'doc_photo_url' && record[f[0]]; })) docs.open = true;
-        docs.append(node('summary', '', 'Other documents (optional)'));
-        const docGrid = node('div', 'form-grid');
-        membershipDocumentFields.filter(function (f) { return f[0] !== 'doc_photo_url'; }).forEach(function (f) {
-          docGrid.append(memberUploadField(f[0], f[1], record && record[f[0]], true));
-        });
-        docs.append(docGrid);
-        form.append(docs);
+        // Joining date defaults to today; due date = one year after joining unless changed by hand.
+        const joined = form.elements.namedItem('joined_on');
+        const due = form.elements.namedItem('due_date');
+        if (!joined.value) joined.value = record && record.created_at ? String(record.created_at).slice(0, 10) : todayISO();
+        let dueTouched = !!(record && record.due_date);
+        const syncDue = function () {
+          if (isLifetimeCategory(form.elements.namedItem('membership_category').value)) { due.value = ''; due.disabled = true; return; }
+          due.disabled = false;
+          if (!dueTouched && joined.value) due.value = addOneYear(joined.value);
+        };
+        due.addEventListener('input', function () { dueTouched = true; });
+        joined.addEventListener('change', syncDue);
+        form.elements.namedItem('membership_category').addEventListener('change', syncDue);
+        syncDue();
+        form.append(node('p', 'form-privacy', 'Documents (PAN, GST, certificates, receipts) stay in the Chamber\u2019s email and are not stored here.'));
 
         const error = node('p', 'form-error', null, { role: 'alert' });
         error.hidden = true;
@@ -1833,10 +1938,9 @@
           if (field.section) return;
           body[field.name] = form.elements.namedItem(field.name).value.trim() || null;
         });
-        membershipDocumentFields.forEach(function (f) {
-          const value = form.elements.namedItem(f[0]).value.trim();
-          body[f[0]] = safeURL(value) ? value : null;
-        });
+        const photoValue = form.elements.namedItem('doc_photo_url').value.trim();
+        body.doc_photo_url = safeURL(photoValue) ? photoValue : null;
+        if (isLifetimeCategory(body.membership_category)) body.due_date = null;
         // A member added here is an official member straight away.
         if (!record) body.status = 'Approved';
         membershipAppsState.publishing = true;
