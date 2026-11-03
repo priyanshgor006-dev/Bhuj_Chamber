@@ -1520,7 +1520,7 @@
             const url = isPdf || (result.format || '').toLowerCase() === 'pdf' ? source : source.replace('/image/upload/', '/image/upload/f_auto,q_auto/');
             const body = table === 'newspaper_clippings'
               ? { publication_name: item.info.name, clipping_date: item.info.date, image_url: url, caption: null, sort_order: start + i }
-              : { image_url: url, caption: null, event_name: null, sort_order: start + i };
+              : { image_url: url, caption: null, event_name: item.info.name, sort_order: start + i };
             const rows = await supabaseClient.request(table, { method: 'POST', params: { select: 'id' }, body: body });
             if (!rows || rows.length !== 1) throw new Error('could not be saved');
             done++;
