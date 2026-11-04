@@ -211,6 +211,10 @@
     .arr-tools button:disabled { opacity: .4; cursor: default; }
     .arr-tools .ins { background: #4a1420; color: #fff; border-color: #4a1420; }
     .arr-tools .ins:hover:not(:disabled) { background: #6b2232; }
+    .arr-tools .wide { grid-column: 1 / -1; }
+    .arr-item[draggable="true"] { cursor: grab; }
+    .arr-item.dragging { opacity: .45; }
+    .arr-item.drop { outline: 3px dashed #7a2338; outline-offset: 2px; }
     .arr-tools .del { color: #b42318; border-color: #f1c9c5; }
     .arr-tools .del:hover:not(:disabled) { background: #fdecea; }
     .arr-edit-back { position: fixed; inset: 0; z-index: 310; background: rgba(25,10,15,.45); display: grid; place-items: center; padding: 16px; }
@@ -1588,7 +1592,7 @@
         const box = node('div', 'arr-box');
         const head = node('div', 'arr-head');
         const titleWrap = node('div');
-        titleWrap.append(node('h2', '', 'Arrange ' + conf.title), node('p', '', 'Number 1 is shown first on the website. Use \u201c+ Before\u201d or \u201c+ After\u201d to add new photos exactly at that place, and \u25c0 \u25b6 to move a photo.'));
+        titleWrap.append(node('h2', '', 'Arrange ' + conf.title), node('p', '', 'Number 1 is shown first on the website. Use \u201c+ Before\u201d or \u201c+ After\u201d to add new photos exactly at that place, \u25c0 \u25b6 or \u201cMove to position\u201d to move a photo. On a computer you can also drag a photo onto another photo.'));
         const status = node('span', 'arr-status', '', { role: 'status' });
         const btns = node('div', 'button-group');
         const saveBtn = actionButton('Save order', 'btn btn-primary btn-small', 'check', function () { saveOrder(); });
@@ -1643,10 +1647,34 @@
             edit.disabled = del.disabled = working;
             edit.addEventListener('click', function () { editRow(row); });
             del.addEventListener('click', function () { deleteRow(row); });
-            tools.append(before, after, left, right, edit, del);
+            const moveTo = node('button', 'wide', '\u21c4 Move to position\u2026', { type: 'button', title: 'Move this photo to any position number' });
+            moveTo.disabled = working || rows.length < 2;
+            moveTo.addEventListener('click', function () {
+              const answer = prompt('Move photo ' + (i + 1) + ' to which position? (1 to ' + rows.length + ')', String(i + 1));
+              if (answer === null) return;
+              const target = parseInt(answer, 10);
+              if (!Number.isInteger(target) || target < 1 || target > rows.length) { toast('Please enter a number from 1 to ' + rows.length + '.'); return; }
+              moveRowTo(i, target - 1);
+            });
+            tools.append(before, after, left, right, edit, del, moveTo);
+            // Drag and drop (computer): drag a photo onto another photo to put it in that place
+            item.draggable = !working;
+            item.addEventListener('dragstart', function (e) { dragFrom = i; item.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(i)); } catch (x) {} });
+            item.addEventListener('dragend', function () { item.classList.remove('dragging'); $$('.arr-item.drop', grid).forEach(function (el) { el.classList.remove('drop'); }); });
+            item.addEventListener('dragover', function (e) { if (dragFrom === null) return; e.preventDefault(); item.classList.add('drop'); });
+            item.addEventListener('dragleave', function () { item.classList.remove('drop'); });
+            item.addEventListener('drop', function (e) { e.preventDefault(); const from = dragFrom; dragFrom = null; if (from !== null && from !== i) moveRowTo(from, i); });
             item.append(th, name, tools);
             grid.append(item);
           });
+        };
+        let dragFrom = null;
+        const moveRowTo = function (from, to) {
+          if (from === to) return;
+          const r = rows.splice(from, 1)[0]; r._moved = true; rows.splice(to, 0, r);
+          dirty = true; draw();
+          toast('Photo moved to position ' + (to + 1) + '. Press Save order to keep it.');
+          const el = grid.children[to]; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
         };
         const FIELDS = table === 'newspaper_clippings'
           ? [['publication_name', 'Newspaper / publication name', 'text', 250], ['clipping_date', 'Date published', 'date'], ['caption', 'Caption', 'textarea', 2000]]
