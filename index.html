@@ -938,7 +938,7 @@
         ] },
         events: { label: 'Event', title: 'title', fields: [
           { name: 'title', label: 'Event title', required: true, wide: true, max: 500 },
-          { name: 'event_date', label: 'Event date and time', type: 'datetime-local', required: true, wide: true },
+          { name: 'event_date', label: 'Event date', type: 'date', localDay: true, required: true, wide: true },
           { name: 'location', label: 'Venue / location', wide: true, max: 500 },
           { name: 'image_url', label: 'Event photo or poster', type: 'image', wide: true },
           { name: 'link_url', label: 'Link for more details or registration (optional)', type: 'url', wide: true, max: 1000 },
@@ -1176,6 +1176,7 @@
           const value = record ? record[field.name] : field.defaultValue;
           if (field.type === 'checkbox') input.checked = value === undefined ? false : !!value;
           else if (field.type === 'datetime-local') input.value = datetimeInput(record ? value : new Date().toISOString());
+          else if (field.localDay) { const d = value ? new Date(value) : null; input.value = d && !isNaN(d) ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') : ''; }
           else if (field.type === 'date') input.value = value ? String(value).slice(0, 10) : '';
           else if (field.type === 'number') input.value = value === undefined || value === null ? '0' : String(value);
           else if (field.type === 'photos') input.value = JSON.stringify(photoList(value));
@@ -1245,6 +1246,8 @@
           } else if (field.type === 'datetime-local') {
             if (raw && Number.isNaN(new Date(raw).getTime())) { input.setCustomValidity('Choose a valid date and time.'); form.reportValidity(); return; }
             payload[field.name] = raw ? new Date(raw).toISOString() : null;
+          } else if (field.localDay) {
+            payload[field.name] = raw ? new Date(raw + 'T00:00:00').toISOString() : null;
           } else if (field.type === 'image' || field.type === 'media') {
             if (raw && !safeURL(raw)) { input.setCustomValidity('Enter a valid http or https URL.'); form.reportValidity(); return; }
             payload[field.name] = raw ? safeURL(raw) : null;
